@@ -42,6 +42,10 @@ updated 2026-10-06.
   I/O ([orbstack.dev/blog/fast-filesystem](https://orbstack.dev/blog/fast-filesystem)).
 - **No independent idle memory or CPU numbers exist** for either engine. We
   will measure our own — see the benchmark plan in [plan.md](plan.md).
+- **Our own measurement (2026-10-14, this Mac)** confirms the direction.
+  OrbStack is 2.8× faster on bind-mount reads and 4.2× faster on small-file
+  writes than Docker Desktop. Numbers and caveats are in
+  [architecture.md](../../architecture.md#live-result-2026-10-14-ossc-68).
 
 ## Risks
 

@@ -141,6 +141,19 @@ The design review renders this as a before/after delta:
 - **The test found C9 and C10.** The first run went to Docker Desktop and
   recreated stable's proxy on 8000/444.
 
+**Bind-mount benchmark** (same Mac, `alpine:3.20`, median of 3):
+
+| Operation | Docker Desktop | OrbStack | Speed-up |
+|---|---|---|---|
+| Read: `find` + `tar` of `lando-core/node_modules` (≈1,000 packages) | 32.2 s | 11.5 s | 2.8× |
+| Write: 5,000 small files into a host mount | 6.7 s | 1.6 s | 4.2× |
+
+- **Caveat:** Docker Desktop was also serving 11 live containers; OrbStack
+  was idle. Both engines' first read runs were cold-cache outliers (130.5 s
+  and 18.8 s).
+- **Reproduce:** `docker --context <ctx> run --rm -v <dir>:/src:ro …` per
+  engine; nothing global changes.
+
 ## Documentation map
 
 | Doc | Purpose |
