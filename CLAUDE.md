@@ -9,13 +9,13 @@ Desktop) — epic **OSSC-60** in Facet Jira.
 
 | When you need | Read |
 |---|---|
-| How Lando reaches its engine, and the target design | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| How Lando reaches its engine, and the target design | [architecture.md](architecture.md) |
 | Why OrbStack first, and every known incompatibility | [docs/engine/due-diligence.md](docs/engine/due-diligence.md) |
 | Phases, tickets, isolation protocol, smoke checklist | [docs/engine/plan.md](docs/engine/plan.md) |
 | Test suites, lint, Node version, dev-build commands | [TOOLS.md](TOOLS.md) |
 | Rules for code inside `lando/core` | `core/AGENTS.md` (upstream-maintained) |
 
-`ARCHITECTURE.md` and `docs/engine/` land through their own PR
+`architecture.md` and `docs/engine/` land through their own PR
 (`docs/engine-architecture`). Until it merges, read them on that branch.
 
 ## Where work happens
