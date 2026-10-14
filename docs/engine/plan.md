@@ -27,8 +27,8 @@ The `lando/lando` fork's `master` matched upstream `main` on 2026-10-14
 | 1. Provider | OSSC-65 | `utils/get-engine-provider.js`, `engine` config key | ✅ Done 2026-10-14 — `0b92ea63` |
 | 1. One socket | OSSC-66 | Export `DOCKER_HOST` for every socket | ✅ Done 2026-10-14 — `358624fc`, `f5e43e93` |
 | 1. Setup | OSSC-67 | No Docker Desktop install or warnings on other engines | ✅ Done 2026-10-14 — `560d9b18` |
-| 2. OrbStack | OSSC-68 | Isolated smoke + benchmark vs Docker Desktop | 🟡 App runs on OrbStack (15 s cold start); Drupal checklist still to do |
-| 2. Rancher | OSSC-69 | Same on Rancher Desktop (dockerd mode) | Same checklist; SSH agent result recorded |
+| 2. OrbStack | OSSC-68 | Isolated smoke + benchmark vs Docker Desktop | ✅ Done 2026-10-14 — Drupal 10 checklist passes; 2.8×–4.2× faster bind mounts |
+| 2. Rancher | OSSC-69 | Same on Rancher Desktop (dockerd mode) | ✅ Done 2026-10-14 — runs; no engine SSH agent socket (C7) |
 | 3. Docs | OSSC-70 | Update `core/docs` user pages | Upstream PRs opened |
 
 Phase 1 needs no running alternative engine — it is unit-tested code. Phase 2

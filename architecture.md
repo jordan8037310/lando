@@ -141,6 +141,23 @@ The design review renders this as a before/after delta:
 - **The test found C9 and C10.** The first run went to Docker Desktop and
   recreated stable's proxy on 8000/444.
 
+**Smoke checklist** (dev build, `drupal10` recipe on OrbStack; `lando`
+service on Rancher Desktop):
+
+| Check | OrbStack 2.2.3 | Rancher Desktop 1.24.0 (moby, VZ, virtiofs) |
+|---|---|---|
+| `lando start` | ✅ 31 s first start (Drupal recipe, image pulls) | ✅ 9.2 s (nginx service) |
+| Drupal install | ✅ `composer` 33 s, `drush site:install` 18 s | — |
+| `drush status` | ✅ 10.6.19, DB connected, bootstrap OK | — |
+| `db-export` / `db-import` | ✅ round trip keeps site config | — |
+| HTTPS via proxy, `*.lndo.site` | ✅ 200, correct page | ✅ 200 (HTTP) |
+| UID in container, files writable | ✅ 501, host and container agree | ✅ 501, host and container agree |
+| `host.lando.internal` | ✅ resolves | ✅ resolves |
+| SSH keys loaded (v3 copy) | ✅ | ✅ |
+| Engine SSH agent socket (C7) | ✅ `/run/host-services/ssh-auth.sock` present | ❌ absent, as predicted |
+| `poweroff` leaves Docker Desktop alone | ✅ 11 containers kept | ✅ 11 containers kept |
+| Docker context and socket unchanged | ✅ | ✅ (admin access off) |
+
 **Bind-mount benchmark** (same Mac, `alpine:3.20`, median of 3):
 
 | Operation | Docker Desktop | OrbStack | Speed-up |
