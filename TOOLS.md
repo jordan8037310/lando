@@ -78,6 +78,25 @@ cd <app> && scripts/lando-dev start
 docker --context orbstack ps                    # the app's containers live here
 ```
 
+### Move a project's data to the new engine
+
+`scripts/lando-migrate <app> <from-context> <to-context> [--images] [--force]`
+copies one app's volumes, and optionally its images, between engines. For
+example: `lando-migrate myapp desktop-linux orbstack --images`.
+
+- **It only copies.** The source is never modified.
+- **It refuses while the app runs** on either engine.
+- **Each volume is verified** by a content checksum on both sides.
+- **Volumes keep their compose labels,** so Lando adopts them on the next
+  `lando-dev start`. Verified 2026-10-14: a Drupal site seeded on Docker
+  Desktop came up on OrbStack with its data. Three volumes took 13 s; a 904 MB
+  image took 8 s to save and load.
+- **Image IDs differ across engines on purpose.** OrbStack uses the
+  containerd image store. Compare `RootFS.Layers` instead of IDs.
+- **Use it instead of `orb docker migrate`** for client work. OrbStack's tool
+  copies everything from Docker Desktop at once, with no per-project filter,
+  and refuses if OrbStack already holds data unless forced.
+
 Use `engineProvider: rancher` for Rancher Desktop. It needs the dockerd (moby)
 runtime and Administrative Access off.
 
