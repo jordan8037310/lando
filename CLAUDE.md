@@ -27,6 +27,22 @@ Desktop) — epic **OSSC-60** in Facet Jira.
 | Plans, architecture, agent setup | this repo | `master` |
 | A recipe or service plugin | that plugin's own fork | its `main` |
 
+### Forks
+
+Every upstream repo we contribute to is forked to `jordan8037310` first. Work
+lands on the fork; upstream PRs go from the fork.
+
+| Upstream | Fork | Why |
+|---|---|---|
+| `lando/lando` | `jordan8037310/lando` | This meta-repo: plans, agent setup |
+| `lando/core` | `jordan8037310/core` | Engine code and user docs |
+| `lando/setup-lando` | `jordan8037310/setup-lando` | Installer mentions Docker Desktop |
+| `lando/core-next` | `jordan8037310/core-next` | Lando 4, upstream's home for pluggable engines |
+| `lando/hyperdrive` | `jordan8037310/hyperdrive` | Legacy installer with a Docker.app check |
+
+Need to change another `lando/*` repo, such as a recipe plugin? Fork it before
+the first commit: `gh repo fork lando/<name> --clone=false`, then add it here.
+
 - **Never commit through a submodule path in this repo.** Submodules here pin
   upstream SHAs; bumping them is an upstream release task.
 - **Submodules are not initialised by default.** Clone the fork you need
