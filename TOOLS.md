@@ -54,7 +54,32 @@ cd ~/code/oss/lando-core && npm ci
 | `scripts/lando-switch stable` | Restores the saved stable target. |
 
 Overrides: `LANDO_CORE_DIR` (core checkout), `LANDO_DEV_ROOT` (config root),
-`LANDO_DEV_NODE` (Node 20 bin dir).
+`LANDO_DEV_NODE` (Node 20 bin dir), `LANDO_PROXY_NAME` (default `landoproxydev`).
+
+`scripts/lando-dev` gives the dev build its own proxy, `landoproxydev`. All
+Lando 3 installs otherwise share one proxy container,
+`landoproxyhyperion5000gandalfedition`. On 2026-10-14, a dev run on Docker
+Desktop recreated stable's proxy from dev files, on ports 8000/444.
+
+### Point the dev build at OrbStack
+
+```bash
+# one-time: stop OrbStack taking the docker context and /var/run/docker.sock
+O=/Applications/OrbStack.app/Contents/MacOS/bin/orbctl
+$O config set setup.use_admin false
+$O config set docker.set_context false
+$O config set network.https false
+$O stop && $O start
+# the very first start switches the context before these apply: check and reset it
+grep currentContext ~/.docker/config.json      # must be desktop-linux
+
+echo 'engineProvider: orbstack' > ~/.lando-dev/config.yml
+cd <app> && scripts/lando-dev start
+docker --context orbstack ps                    # the app's containers live here
+```
+
+Use `engineProvider: rancher` for Rancher Desktop. It needs the dockerd (moby)
+runtime and Administrative Access off.
 
 Stable Lando (`v3.26.2`, installed at `~/.data/lando/v3.26.2/lando`) stays
 installed. Running both is safe while they share an engine; the risk starts when

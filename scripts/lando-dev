@@ -11,5 +11,7 @@ NODE_BIN="${LANDO_DEV_NODE:-/opt/homebrew/opt/node@20/bin}"
 # ponytail: own config root so dev never shares ~/.lando caches or engine config with stable
 export LANDO_CORE_USERCONFROOT="${LANDO_DEV_ROOT:-$HOME/.lando-dev}"
 mkdir -p "$LANDO_CORE_USERCONFROOT"
+# own proxy too: on a shared engine the default name would recreate stable's proxy from dev files
+export LANDO_PROXY_NAME="${LANDO_PROXY_NAME:-landoproxydev}"
 
 exec "$NODE_BIN/node" "$CORE/bin/lando" "$@"
