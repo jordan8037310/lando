@@ -62,6 +62,8 @@ flowchart TD
 | C6 | `hooks/app-check-docker-compat.js`, `get-config-defaults.js` `getBuildEngineVersion` | Docker Desktop version ranges (4.85.0) | Spurious "unsupported / update Docker Desktop" warnings. |
 | C7 | `packages/ssh-agent/ssh-agent.js` | `/run/host-services/ssh-auth.sock` (Docker Desktop VM path) | OrbStack provides it; Rancher does not. |
 | C8 | `index.js` `LANDO_HOST_UID/GID` | Assumes Docker Desktop's file-ownership translation | Ownership edge cases on OrbStack and Colima (core#53). |
+| C9 | `hooks/lando-run-setup.js` | After first-run autosetup, calls `build-config()` with no options | Strips `DOCKER_HOST` and resets `engineConfig` to the default socket. **Found live:** the first OrbStack start created its containers on Docker Desktop. |
+| C10 | `index.js` `proxyName` | Every Lando 3 install shares one proxy container, `landoproxyhyperion5000gandalfedition` | Two builds on one engine recreate each other's proxy. **Found live:** a dev run moved stable's proxy to 8000/444. |
 
 The `/Applications/Docker.app` coupling is so strong that the published
 OrbStack guide (`core/docs/guides/how-do-i-use-orbstack.md`) tells users to
@@ -76,18 +78,16 @@ the five questions core currently answers with Docker Desktop paths.
 flowchart TD
   CLI["bin/lando"] --> BOOT["lib/lando.js bootstrap"]
   BOOT --> CFG["build-config.js"]
-  CFG -->|"engine: auto | docker-desktop | orbstack | rancher | generic"| RES["utils/get-engine-provider.js<br/>(new)"]
-  RES --> P1["docker-desktop<br/>Docker.app plist · docker desktop start"]
-  RES --> P2["orbstack<br/>~/.orbstack/run/docker.sock · orb start"]
-  RES --> P3["rancher<br/>~/.rd/docker.sock · rdctl start"]
-  RES --> P4["generic<br/>DOCKER_HOST / docker context · no start"]
-  P1 & P2 & P3 & P4 --> IFACE{{"provider contract<br/>socketPath · dockerBin · composeBin<br/>start() · version() · sshAuthSock"}}
-  IFACE --> ENG["lib/engine.js"]
-  ENG --> DOCKER["lib/docker.js (dockerode)<br/>socketPath from provider"]
-  ENG --> DAEMON["lib/daemon.js<br/>up() → provider.start()<br/>getVersions() → provider.version()"]
-  ENG --> COMPOSE["lib/compose.js<br/>env DOCKER_HOST = provider socket"]
-  SETUP["setup-build-engine-darwin"] -->|"skip install when provider ≠ docker-desktop<br/>or daemon reachable"| RES
-  COMPAT["compat hooks"] -->|"engine version rules per provider"| IFACE
+  CFG -->|"engineProvider: auto | docker-desktop | orbstack | rancher"| RES["utils/get-engine-provider.js<br/>(new)"]
+  RES --> P1["docker-desktop<br/>/var/run/docker.sock · docker desktop start"]
+  RES --> P2["orbstack<br/>~/.orbstack/run/docker.sock · open -a OrbStack"]
+  RES --> P3["rancher (dockerd)<br/>~/.rd/docker.sock · open -a Rancher Desktop"]
+  P1 & P2 & P3 --> IFACE{{"provider contract<br/>name · app · socketPath"}}
+  IFACE --> GEC["utils/get-engine-config.js<br/>socketPath + DOCKER_HOST=unix://"]
+  GEC --> DOCKER["lib/docker.js (dockerode)"]
+  GEC --> COMPOSE["docker / docker compose subprocesses"]
+  IFACE --> DAEMON["lib/daemon.js<br/>up() opens provider app<br/>getVersions() → skip off Docker Desktop"]
+  SETUP["setup hooks + run-setup"] -->|"no Docker Desktop install;<br/>keep engine after autosetup"| IFACE
 ```
 
 ### Design rules
@@ -95,9 +95,10 @@ flowchart TD
 - **One socket for every client.** The provider's `socketPath` feeds dockerode
   *and* is exported as `DOCKER_HOST=unix://…` for the `docker` and
   `docker compose` subprocesses. This closes the C5 split brain.
-- **`auto` keeps today's behavior.** With no `engine` key, Docker Desktop
-  users see no change; detection order is Docker.app → OrbStack → Rancher →
-  `DOCKER_HOST`.
+- **`auto` keeps today's behavior.** With no `engineProvider` key, Docker
+  Desktop users see no change; detection order is Docker.app → OrbStack →
+  Rancher. A `generic` provider (raw `DOCKER_HOST`) is deferred: a custom
+  `engineConfig.socketPath` already covers it, now including subprocesses.
 - **Config before code.** `engineConfig.socketPath` and `setup.buildEngine:
   false` already exist; the provider generalises them rather than replacing
   them.
@@ -105,18 +106,40 @@ flowchart TD
   returns `skip`, the convention `getVersions()` already uses on Windows.
 - **No Lando 4 dependency.** This is a v3 change, small enough to upstream.
 
-### Minimum change set (v3)
+### Change set (v3) — implemented on `jordan8037310/core` `feat/engine-provider`
 
-1. `utils/get-engine-provider.js` — provider table and `auto` detection.
-2. `lib/daemon.js` — `up()` and `getVersions()` delegate to the provider; a
-   missing plist yields `skip`, never `null` (fixes core#138).
-3. `utils/get-engine-config.js` — honour `DOCKER_HOST` (`unix://`) and export
-   it to subprocesses.
-4. `hooks/lando-setup-build-engine-darwin.js` — skip when the provider is not
-   Docker Desktop or the daemon is reachable.
-5. `hooks/app-check-docker-compat.js` — no Docker Desktop warnings on other
-   providers.
-6. Unit specs for each, in `core/test/` (mocha + chai, see [TOOLS.md](TOOLS.md)).
+The design review renders this as a before/after delta:
+[engine-provider-delta.html](docs/engine/engine-provider-delta.html).
+
+| Change | Commit | Ticket | Spec |
+|---|---|---|---|
+| `null` version → `skip`; compat check never throws (C1) | `17693176` | OSSC-64 | `test/is-compatible-version.spec.js`, `test/daemon.spec.js` |
+| `utils/get-engine-provider.js`; daemon opens the provider app and skips Docker Desktop versioning (C2, C6) | `0b92ea63` | OSSC-65 | `test/get-engine-provider.spec.js`, `test/daemon.spec.js` |
+| Export `DOCKER_HOST=unix://…` for any non-default socket (C5) | `358624fc` | OSSC-66 | `test/get-engine-config.spec.js` |
+| No Docker Desktop install or landonet check on other providers (C3) | `560d9b18` | OSSC-67 | `test/lando-setup-build-engine-darwin.spec.js` |
+| Autosetup keeps the configured engine (C9) | `f5e43e93` | OSSC-66 | `test/lando-run-setup.spec.js`, mutation-checked |
+
+- **Config key:** `engineProvider` (`auto` default, `docker-desktop`,
+  `orbstack`, `rancher`), settable in `config.yml` or as
+  `LANDO_ENGINE_PROVIDER`.
+- **`auto` keeps today's behavior:** Docker Desktop whenever `Docker.app`
+  exists, so existing users see no change.
+- **Gate:** `npm test` — lint clean, 312 passing (baseline 291).
+- **Still open:** C4 (bin paths fall back to `PATH`, which works), C7 (Rancher
+  SSH agent socket), C8 (ownership), C10 (shared proxy — `scripts/lando-dev`
+  works around it with `LANDO_PROXY_NAME`).
+
+### Live result, 2026-10-14 (OSSC-68)
+
+- **The dev build ran an app on OrbStack**, isolated from stable Lando. A
+  `lando` service (nginx) behind the proxy answered on
+  `http://orbtest.lndo.site/` with the right content.
+- **Cold start from an empty config root:** 15.2 s, including autosetup.
+- **No Docker Desktop warning** on OrbStack.
+- **Stable stayed on Docker Desktop:** `/var/run/docker.sock` and the
+  `desktop-linux` context did not change.
+- **The test found C9 and C10.** The first run went to Docker Desktop and
+  recreated stable's proxy on 8000/444.
 
 ## Documentation map
 

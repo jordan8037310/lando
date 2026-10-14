@@ -2,7 +2,7 @@
 
 Epic: **OSSC-60** — Engine.Provider: run Lando on OrbStack or Rancher Desktop
 instead of Docker Desktop. Architecture is in
-[ARCHITECTURE.md](../../ARCHITECTURE.md); evidence is in
+[architecture.md](../../architecture.md); evidence is in
 [due-diligence.md](due-diligence.md).
 
 ## Repositories and branches
@@ -11,7 +11,7 @@ instead of Docker Desktop. Architecture is in
 |---|---|---|
 | `jordan8037310/lando` | `docs/engine-architecture` | This plan, architecture, due diligence |
 | `jordan8037310/lando` | `feat/agentic-hydration` | `CLAUDE.md`, `TOOLS.md`, `.claude/settings.json`, `scripts/lando-switch` |
-| `jordan8037310/core` | `feat/engine-provider` (to create) | All code changes, one commit per ticket |
+| `jordan8037310/core` | `feat/engine-provider` | All code changes, one commit per ticket |
 
 The `lando/lando` fork's `master` matched upstream `main` on 2026-10-14
 (0 ahead, 0 behind). `lando/core` was forked the same day.
@@ -23,11 +23,11 @@ The `lando/lando` fork's `master` matched upstream `main` on 2026-10-14
 | 0. Analysis | OSSC-61 | Coupling map, due diligence | ✅ Done 2026-10-14 |
 | 0. Hydration | OSSC-62 | Agent setup, `lando-switch`, Node 20 toolchain | PR merged on the fork |
 | 0. Decision | OSSC-63 | OrbStack Pro seats (commercial licence) | **Jordan decides.** The trial covers phases 1–2. |
-| 1. Fix the crash | OSSC-64 | `null` version → `skip` (core#138) | Unit specs green; smallest upstreamable PR |
-| 1. Provider | OSSC-65 | `utils/get-engine-provider.js`, `engine` config key | Docker Desktop path unchanged (specs) |
-| 1. One socket | OSSC-66 | Export `DOCKER_HOST` for every socket | Spec: compose subprocess gets provider socket |
-| 1. Setup | OSSC-67 | No Docker Desktop install or warnings on other engines | Specs green |
-| 2. OrbStack | OSSC-68 | Isolated smoke + benchmark vs Docker Desktop | Drupal recipe passes the checklist below |
+| 1. Fix the crash | OSSC-64 | `null` version → `skip` (core#138) | ✅ Done 2026-10-14 — `17693176` |
+| 1. Provider | OSSC-65 | `utils/get-engine-provider.js`, `engine` config key | ✅ Done 2026-10-14 — `0b92ea63` |
+| 1. One socket | OSSC-66 | Export `DOCKER_HOST` for every socket | ✅ Done 2026-10-14 — `358624fc`, `f5e43e93` |
+| 1. Setup | OSSC-67 | No Docker Desktop install or warnings on other engines | ✅ Done 2026-10-14 — `560d9b18` |
+| 2. OrbStack | OSSC-68 | Isolated smoke + benchmark vs Docker Desktop | 🟡 App runs on OrbStack (15 s cold start); Drupal checklist still to do |
 | 2. Rancher | OSSC-69 | Same on Rancher Desktop (dockerd mode) | Same checklist; SSH agent result recorded |
 | 3. Docs | OSSC-70 | Update `core/docs` user pages | Upstream PRs opened |
 

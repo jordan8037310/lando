@@ -68,7 +68,7 @@ at Docker Desktop.
 
 ## Incompatibilities in lando/core
 
-These come from the source. C-numbers match [ARCHITECTURE.md](../../ARCHITECTURE.md).
+These come from the source. C-numbers match [architecture.md](../../architecture.md).
 
 1. **C1 — `null` version crash** (core#138). `lib/daemon.js` reads
    `Docker.app/Contents/Info.plist`; without it `getVersions()` returns
