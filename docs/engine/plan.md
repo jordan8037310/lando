@@ -29,6 +29,8 @@ The `lando/lando` fork's `master` matched upstream `main` on 2026-10-14
 | 1. Setup | OSSC-67 | No Docker Desktop install or warnings on other engines | ✅ Done 2026-10-14 — `560d9b18` |
 | 2. OrbStack | OSSC-68 | Isolated smoke + benchmark vs Docker Desktop | ✅ Done 2026-10-14 — Drupal 10 checklist passes; 2.8×–4.2× faster bind mounts |
 | 2. Rancher | OSSC-69 | Same on Rancher Desktop (dockerd mode) | ✅ Done 2026-10-14 — runs; no engine SSH agent socket (C7) |
+| 2. Real projects | OSSC-71 | `cfops` and `facetcrm` on the dev build with Docker Desktop **quit** — the acceptance test | Every check in *Real-project acceptance* below |
+| 2. Migration spike | OSSC-72 | Copy images and volumes from Docker Desktop (`orb migrate docker`, `docker save/load`, volume tar) | Recommendation + one-project copy script with a data check |
 | 3. Docs | OSSC-70 | Update `core/docs` user pages | Upstream PRs opened |
 
 Phase 1 needs no running alternative engine — it is unit-tested code. Phase 2
@@ -60,6 +62,48 @@ Stable Lando keeps running on Docker Desktop throughout.
 - `host.lando.internal` resolves from a container.
 - `https://<app>.lndo.site` serves through the proxy.
 - `lando poweroff` leaves Docker Desktop apps untouched.
+
+## Docker Desktop–free validation (2026-10-14)
+
+`validate-no-dd.sh` style run: quit Docker Desktop, stop the new engine, then
+`lando-dev start`.
+
+- **OrbStack: 15/15 checks pass.** Lando started OrbStack itself
+  (`orbctl start`), Drupal came up in 20 s, and Docker Desktop was never
+  relaunched.
+- **Rancher Desktop: Lando started Rancher itself** (`rdctl start`) in 25 s,
+  and the app served 200 through the proxy.
+- **Two bugs found by this run, fixed in core `97066f2c`:**
+  - `open -a OrbStack` does nothing once the engine is stopped, so providers
+    now start with their own CLI.
+  - The landonet setup task built a daemon without the provider, so it
+    relaunched Docker Desktop.
+- **Engine side effects on `~/.docker/config.json`** (outside Lando's
+  control; restore after a run):
+  - OrbStack's first start switches `credsStore` from `desktop` to
+    `osxkeychain`.
+  - Rancher switches `currentContext` to `rancher-desktop` whenever Docker
+    Desktop's socket is missing, and removes it on shutdown.
+
+## Real-project acceptance (OSSC-71)
+
+The real test is client projects, not test apps. For `cfops` and `facetcrm`,
+with Docker Desktop quit:
+
+- **`lando-dev start`** — timed; every URL returns 200 through the proxy.
+- **`lando-dev rebuild -y`** — timed.
+- **`lando-dev db-import`** of a fresh dump from stable; the main page shows
+  real data.
+- **Every tooling command** in the project's `.lando.yml` runs.
+- **`lando-dev logs`, `ssh`, `info`** work.
+- **SSH-dependent tooling** (git over SSH, remote pulls) works.
+- **Fallback holds:** `lando-dev poweroff`, reopen Docker Desktop, then stable
+  `lando start` works with data intact.
+- **Config intact:** `currentContext: desktop-linux` and
+  `credsStore: desktop` after each run.
+
+Images and volumes do not move between engines, so the first start rebuilds
+images and needs a `db-import`. OSSC-72 decides whether to copy them instead.
 
 ## Benchmark (OSSC-68)
 
