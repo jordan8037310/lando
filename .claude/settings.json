@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm test)",
+      "Bash(npm run lint)",
+      "Bash(npm run test:unit)",
+      "Bash(npm run typecheck)",
+      "Bash(npx mocha:*)",
+      "Bash(npx eslint:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git submodule status:*)",
+      "Bash(scripts/lando-dev version)",
+      "Bash(scripts/lando-switch status)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(scripts/lando-switch:*)",
+      "Bash(orb:*)",
+      "Bash(rdctl:*)"
+    ],
+    "deny": [
+      "Bash(npm run test:leia:*)",
+      "Bash(npx leia:*)",
+      "Bash(sudo:*)",
+      "Bash(docker context use:*)",
+      "Bash(ln * /var/run/docker.sock:*)",
+      "Bash(rm * /var/run/docker.sock:*)",
+      "Bash(git push upstream:*)",
+      "Bash(git push --force:*)",
+      "Bash(git submodule update --remote:*)"
+    ]
+  }
+}

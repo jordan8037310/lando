@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Run the dev build of lando/core, isolated from the stable install.
+#   LANDO_CORE_DIR   core checkout          (default: ~/code/oss/lando-core)
+#   LANDO_DEV_ROOT   dev config/cache root  (default: ~/.lando-dev)
+#   LANDO_DEV_NODE   node 20 bin dir        (default: brew node@20)
+set -euo pipefail
+
+CORE="${LANDO_CORE_DIR:-$HOME/code/oss/lando-core}"
+NODE_BIN="${LANDO_DEV_NODE:-/opt/homebrew/opt/node@20/bin}"
+
+# ponytail: own config root so dev never shares ~/.lando caches or engine config with stable
+export LANDO_CORE_USERCONFROOT="${LANDO_DEV_ROOT:-$HOME/.lando-dev}"
+mkdir -p "$LANDO_CORE_USERCONFROOT"
+
+exec "$NODE_BIN/node" "$CORE/bin/lando" "$@"
