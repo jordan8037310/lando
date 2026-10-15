@@ -161,6 +161,35 @@ Round-robin, 5 rounds, all engines under the same background load:
 - **Compose `links`:** Podman rejects them. Lando's generated compose was not
   audited, but the Drupal recipe works.
 
+## Arcane (evaluated 2026-10-15)
+
+**Arcane is not an engine.** It's a self-hosted Docker management UI
+(BSD-3-Clause, `getarcaneapp/arcane`), in the same category as Portainer. It
+runs as a container and drives an existing engine through its socket, so it
+can't replace OrbStack, Rancher or Podman, and it can't be benchmarked as a
+backend. Its place in the stack is: engine → Lando (dev workflow) → Arcane
+(optional dashboard).
+
+Trial: v2.14.0 on OrbStack, port bound to `127.0.0.1:3552`, Drupal recipe
+running.
+
+| Measure | Result |
+|---|---|
+| Image size | 213 MB |
+| Idle cost | about 0% CPU, 123 MB RAM (137 MB while Lando works) |
+| `lando start` without / with Arcane | 15.1, 11.0 s / 11.1, 11.0, 9.4 s. No measurable slowdown; the first baseline run, 69.5 s, was a cold-cache outlier. |
+| Sees Lando's containers | Yes. Same engine and same socket, and it scanned all 11 images on the engine. |
+
+Things to know before adopting it:
+
+- **Telemetry is on by default.** It sends analytics heartbeats. Set
+  `ANALYTICS_DISABLED=true`.
+- **The upstream example publishes `3552` on every interface.** Bind it to
+  `127.0.0.1`.
+- **Mounting the socket gives Arcane root-equivalent control** of the engine.
+- **It overlaps with OrbStack's own GUI.** Its extras are multi-host agents,
+  Trivy image scanning, and compose-stack management.
+
 ## Sources
 
 - [lando/lando#3388](https://github.com/lando/lando/issues/3388) — Rancher Desktop request; maintainer defers pluggable engines to Lando 4 with no ETA.
