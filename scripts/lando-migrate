@@ -13,7 +13,7 @@ src() { docker --context "$FROM" "$@"; }
 dst() { docker --context "$TO" "$@"; }
 HELPER=alpine:3.20
 # ponytail: content hash of every file (path + bytes) is the copy check; ownership/mode ride along in tar -p
-sum='cd /v && find . -type f | sort | xargs -r md5sum | md5sum | cut -d" " -f1'
+sum='cd /v && find . -type f -print0 | sort -z | xargs -0 -r md5sum | md5sum | cut -d" " -f1'
 
 src pull -q "$HELPER" >/dev/null; dst pull -q "$HELPER" >/dev/null
 
