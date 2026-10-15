@@ -56,6 +56,16 @@ cd ~/code/oss/lando-core && npm ci
 Overrides: `LANDO_CORE_DIR` (core checkout), `LANDO_DEV_ROOT` (config root),
 `LANDO_DEV_NODE` (Node 20 bin dir), `LANDO_PROXY_NAME` (default `landoproxydev`).
 
+**`scripts/lando-dev` doesn't mount your whole home.** Lando bind-mounts its
+`home` setting into every container at `/user`. By default that's your entire
+home directory, so anything recursive in a container walks all of it through
+the engine. On OrbStack that showed up as OrbStack crawling the disk.
+
+`lando-dev` sets `home` to `~/.lando-dev/home` instead. That folder holds only
+`.ssh`, hard-linked to `~/.ssh` so no key is copied, and it is refreshed on
+every run. SSH keys and git over SSH keep working. Set `LANDO_DEV_FULL_HOME=1`
+to mount the real home again.
+
 `scripts/lando-dev` gives the dev build its own proxy, `landoproxydev`. All
 Lando 3 installs otherwise share one proxy container,
 `landoproxyhyperion5000gandalfedition`. On 2026-10-14, a dev run on Docker
