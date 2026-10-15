@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Point the `lando` command at the stable install or the dev build.
+#   lando-switch status | dev | stable
+# Stable stays installed; only the ~/.lando/bin/lando symlink moves.
+set -euo pipefail
+
+LINK="$HOME/.lando/bin/lando"
+SAVED="$HOME/.lando/bin/.lando-stable-target"
+DEV="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lando-dev"
+
+current() { readlink "$LINK" 2>/dev/null || echo "(none)"; }
+
+case "${1:-status}" in
+  status)
+    echo "lando -> $(current)"
+    [[ "$(current)" == "$DEV" ]] && echo "mode: dev" || echo "mode: stable"
+    ;;
+  dev)
+    # remember the stable target the first time we leave it
+    [[ "$(current)" != "$DEV" ]] && current > "$SAVED"
+    ln -sfn "$DEV" "$LINK"
+    echo "lando -> dev ($DEV)"
+    ;;
+  stable)
+    [[ -s "$SAVED" ]] || { echo "no saved stable target in $SAVED" >&2; exit 1; }
+    ln -sfn "$(cat "$SAVED")" "$LINK"
+    echo "lando -> stable ($(cat "$SAVED"))"
+    ;;
+  *) echo "usage: lando-switch status|dev|stable" >&2; exit 2 ;;
+esac

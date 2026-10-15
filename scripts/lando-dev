@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Run the dev build of lando/core, isolated from the stable install.
+#   LANDO_CORE_DIR   core checkout          (default: ~/code/oss/lando-core)
+#   LANDO_DEV_ROOT   dev config/cache root  (default: ~/.lando-dev)
+#   LANDO_DEV_NODE   node 20 bin dir        (default: brew node@20)
+set -euo pipefail
+
+CORE="${LANDO_CORE_DIR:-$HOME/code/oss/lando-core}"
+NODE_BIN="${LANDO_DEV_NODE:-/opt/homebrew/opt/node@20/bin}"
+
+# ponytail: own config root so dev never shares ~/.lando caches or engine config with stable
+export LANDO_CORE_USERCONFROOT="${LANDO_DEV_ROOT:-$HOME/.lando-dev}"
+mkdir -p "$LANDO_CORE_USERCONFROOT"
+# own proxy too: on a shared engine the default name would recreate stable's proxy from dev files
+export LANDO_PROXY_NAME="${LANDO_PROXY_NAME:-landoproxydev}"
+
+# Lando bind-mounts `home` into every container at /user, which exposes the whole home dir to the engine
+# (anything recursive in a container walks it). Give it a dir holding only .ssh, hard-linked so no key is copied.
+# Set LANDO_DEV_FULL_HOME=1 to mount the real home instead.
+if [ -z "${LANDO_DEV_FULL_HOME:-}" ]; then
+  SSH_ONLY="$LANDO_CORE_USERCONFROOT/home"
+  mkdir -p "$SSH_ONLY/.ssh" && chmod 700 "$SSH_ONLY/.ssh"
+  for f in "$HOME"/.ssh/*; do [ -f "$f" ] && ln -f "$f" "$SSH_ONLY/.ssh/"; done
+  export LANDO_HOME="$SSH_ONLY"
+fi
+
+exec "$NODE_BIN/node" "$CORE/bin/lando" "$@"

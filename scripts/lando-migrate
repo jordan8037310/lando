@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Copy one Lando app's volumes (and its images) from one docker engine to another.
+#   lando-migrate <app> <from-context> <to-context> [--images] [--force]
+# e.g. lando-migrate myapp desktop-linux orbstack --images
+# Copy only: the source is never modified. Stop the app on both engines first.
+set -euo pipefail
+
+APP=${1:?app name}; FROM=${2:?from context}; TO=${3:?to context}; shift 3
+IMAGES=false; FORCE=false
+for a in "$@"; do case $a in --images) IMAGES=true ;; --force) FORCE=true ;; *) echo "unknown flag $a" >&2; exit 2 ;; esac; done
+
+src() { docker --context "$FROM" "$@"; }
+dst() { docker --context "$TO" "$@"; }
+HELPER=alpine:3.20
+# ponytail: content hash of every file (path + bytes) is the copy check; ownership/mode ride along in tar -p
+sum='cd /v && find . -type f -print0 | sort -z | xargs -0 -r md5sum | md5sum | cut -d" " -f1'
+
+src pull -q "$HELPER" >/dev/null; dst pull -q "$HELPER" >/dev/null
+
+# refuse while the app runs on either side: copying a live database volume can corrupt it
+for side in src dst; do
+  if [ -n "$($side ps -q --filter "label=com.docker.compose.project=$APP")" ]; then
+    echo "$APP is running on the $side engine; stop it first (lando poweroff)" >&2; exit 1
+  fi
+done
+
+vols=$(src volume ls -q --filter "label=com.docker.compose.project=$APP")
+[ -n "$vols" ] || { echo "no volumes for $APP on $FROM" >&2; exit 1; }
+
+for v in $vols; do
+  if dst volume inspect "$v" >/dev/null 2>&1 && ! $FORCE; then
+    echo "skip  $v (exists on $TO; --force to overwrite)"; continue
+  fi
+  # recreate with the same labels so compose adopts it as its own volume
+  labels=$(src volume inspect "$v" --format '{{range $k, $val := .Labels}}--label={{$k}}={{$val}} {{end}}')
+  # shellcheck disable=SC2086
+  dst volume create $labels "$v" >/dev/null
+  src run --rm -v "$v:/v:ro" "$HELPER" tar -C /v -cpf - . \
+    | dst run --rm -i -v "$v:/v" "$HELPER" sh -c 'rm -rf /v/..?* /v/.[!.]* /v/* 2>/dev/null; tar -C /v -xpf -'
+  a=$(src run --rm -v "$v:/v:ro" "$HELPER" sh -c "$sum")
+  b=$(dst run --rm -v "$v:/v:ro" "$HELPER" sh -c "$sum")
+  [ "$a" = "$b" ] && echo "copy  $v  md5=$a" || { echo "MISMATCH $v $a != $b" >&2; exit 1; }
+done
+
+if $IMAGES; then
+  imgs=$(src ps -a --filter "label=com.docker.compose.project=$APP" --format '{{.Image}}' | sort -u)
+  for i in $imgs; do
+    if dst image inspect "$i" >/dev/null 2>&1; then echo "skip  image $i (present)"; continue; fi
+    src save "$i" | dst load -q && echo "image $i"
+  done
+fi
+echo "done: $APP $FROM -> $TO"
