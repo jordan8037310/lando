@@ -1,0 +1,135 @@
+# Engine provider — plan
+
+Epic: **OSSC-60** — Engine.Provider: run Lando on OrbStack or Rancher Desktop
+instead of Docker Desktop. Architecture is in
+[architecture.md](../../architecture.md); evidence is in
+[due-diligence.md](due-diligence.md).
+
+## Repositories and branches
+
+| Repo | Branch | Holds |
+|---|---|---|
+| `jordan8037310/lando` | `docs/engine-architecture` | This plan, architecture, due diligence |
+| `jordan8037310/lando` | `feat/agentic-hydration` | `CLAUDE.md`, `TOOLS.md`, `.claude/settings.json`, `scripts/lando-switch` |
+| `jordan8037310/core` | `feat/engine-provider` | All code changes, one commit per ticket |
+
+The `lando/lando` fork's `master` matched upstream `main` on 2026-10-14
+(0 ahead, 0 behind). `lando/core` was forked the same day.
+
+## Phases and tickets
+
+| Phase | Ticket | Work | Gate to next phase |
+|---|---|---|---|
+| 0. Analysis | OSSC-61 | Coupling map, due diligence | ✅ Done 2026-10-14 |
+| 0. Hydration | OSSC-62 | Agent setup, `lando-switch`, Node 20 toolchain | PR merged on the fork |
+| 0. Decision | OSSC-63 | OrbStack Pro seats (commercial licence) | **Jordan decides.** The trial covers phases 1–2. |
+| 1. Fix the crash | OSSC-64 | `null` version → `skip` (core#138) | ✅ Done 2026-10-14 — `17693176` |
+| 1. Provider | OSSC-65 | `utils/get-engine-provider.js`, `engine` config key | ✅ Done 2026-10-14 — `0b92ea63` |
+| 1. One socket | OSSC-66 | Export `DOCKER_HOST` for every socket | ✅ Done 2026-10-14 — `358624fc`, `f5e43e93` |
+| 1. Setup | OSSC-67 | No Docker Desktop install or warnings on other engines | ✅ Done 2026-10-14 — `560d9b18` |
+| 2. OrbStack | OSSC-68 | Isolated smoke + benchmark vs Docker Desktop | ✅ Done 2026-10-14 — Drupal 10 checklist passes; 2.8×–4.2× faster bind mounts |
+| 2. Rancher | OSSC-69 | Same on Rancher Desktop (dockerd mode) | ✅ Done 2026-10-14 — runs; no engine SSH agent socket (C7) |
+| 2. Real projects | OSSC-71 | `cfops` and `facetcrm` on the dev build with Docker Desktop **quit** — the acceptance test | Every check in *Real-project acceptance* below |
+| 2. Migration spike | OSSC-72 | Copy images and volumes from Docker Desktop (`orb migrate docker`, `docker save/load`, volume tar) | Recommendation + one-project copy script with a data check |
+| 3. Docs | OSSC-70 | Update `core/docs` user pages | Upstream PRs opened |
+
+Phase 1 needs no running alternative engine — it is unit-tested code. Phase 2
+is the first time OrbStack or Rancher is started on this Mac.
+
+## Isolation protocol for phase 2
+
+Stable Lando keeps running on Docker Desktop throughout.
+
+1. In OrbStack settings, **turn off** "Use admin privileges" before the first
+   start, so it does not repoint `/var/run/docker.sock`. In Rancher Desktop,
+   leave **Administrative Access** off and choose the **dockerd (moby)**
+   runtime.
+2. Do **not** run `docker context use orbstack`. The dev build gets its socket
+   from its own config, not from the global context.
+3. Run the dev build with its own config root:
+   `LANDO_CORE_USERCONFROOT=~/.lando-dev`, where `~/.lando-dev/config.yml`
+   sets `engine` (or `engineConfig.socketPath`) and `setup.buildEngine: false`.
+4. Before and after each session, confirm
+   `readlink /var/run/docker.sock` still points at
+   `~/.docker/run/docker.sock` and `docker context show` is `desktop-linux`.
+
+## Smoke checklist (OSSC-68, OSSC-69)
+
+- `lando start` on a Drupal recipe completes with no Docker Desktop warning.
+- `lando ssh -c 'id'` shows the expected UID; files in `/app` are writable.
+- `lando drush status` and `lando db-import` succeed.
+- SSH keys load into the container (core#53).
+- `host.lando.internal` resolves from a container.
+- `https://<app>.lndo.site` serves through the proxy.
+- `lando poweroff` leaves Docker Desktop apps untouched.
+
+## Docker Desktop–free validation (2026-10-14)
+
+`validate-no-dd.sh` style run: quit Docker Desktop, stop the new engine, then
+`lando-dev start`.
+
+- **OrbStack: 15/15 checks pass.** Lando started OrbStack itself
+  (`orbctl start`), Drupal came up in 20 s, and Docker Desktop was never
+  relaunched.
+- **Rancher Desktop: Lando started Rancher itself** (`rdctl start`) in 25 s,
+  and the app served 200 through the proxy.
+- **Two bugs found by this run, fixed in core `97066f2c`:**
+  - `open -a OrbStack` does nothing once the engine is stopped, so providers
+    now start with their own CLI.
+  - The landonet setup task built a daemon without the provider, so it
+    relaunched Docker Desktop.
+- **Engine side effects on `~/.docker/config.json`** (outside Lando's
+  control; restore after a run):
+  - OrbStack's first start switches `credsStore` from `desktop` to
+    `osxkeychain`.
+  - Rancher switches `currentContext` to `rancher-desktop` whenever Docker
+    Desktop's socket is missing, and removes it on shutdown.
+
+## Real-project acceptance (OSSC-71)
+
+The real test is client projects, not test apps. For `cfops` and `facetcrm`,
+with Docker Desktop quit:
+
+- **`lando-dev start`** — timed; every URL returns 200 through the proxy.
+- **`lando-dev rebuild -y`** — timed.
+- **`lando-dev db-import`** of a fresh dump from stable; the main page shows
+  real data.
+- **Every tooling command** in the project's `.lando.yml` runs.
+- **`lando-dev logs`, `ssh`, `info`** work.
+- **SSH-dependent tooling** (git over SSH, remote pulls) works.
+- **Fallback holds:** `lando-dev poweroff`, reopen Docker Desktop, then stable
+  `lando start` works with data intact.
+- **Config intact:** `currentContext: desktop-linux` and
+  `credsStore: desktop` after each run.
+
+Images and volumes do not move between engines, so the first start rebuilds
+images and needs a `db-import`. OSSC-72 decides whether to copy them instead.
+
+## Benchmark (OSSC-68)
+
+Same app, same machine, three runs each, median reported:
+
+- Cold `lando start` after `lando poweroff`.
+- `lando rebuild -y`.
+- A bind-mount-heavy command: `lando composer install` with an empty `vendor/`.
+- Engine idle memory after 5 minutes (Activity Monitor, VM process).
+
+## User docs to update (OSSC-70)
+
+These live in `lando/core/docs` (docs.lando.dev) and change only after the
+code lands upstream:
+
+- `docs/guides/how-do-i-use-orbstack.md` — drop the `Docker.app` symlink hack.
+- `docs/getting-started/requirements.md` — list supported engines.
+- `docs/cli/setup.md` — `setup.buildEngine: false` and engine detection.
+- `docs/config/global.md` — the `engine` key.
+- New guide: Rancher Desktop.
+
+## Looping
+
+After the review of this plan, OSSC-64 through OSSC-69 run through
+`/superloop`: one ticket per tick, a feature branch per ticket off
+`feat/engine-provider` in the core fork, and the functional gate (acceptance
+criteria met, specs that fail when the logic breaks) before merge. The full
+adversarial review runs once, on `feat/engine-provider` → `main` of the fork,
+before anything is offered upstream.
