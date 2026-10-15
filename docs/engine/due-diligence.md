@@ -109,6 +109,58 @@ These come from the source. C-numbers match [architecture.md](../../architecture
 - **Colima / Rancher:** `engineConfig.socketPath` in `~/.lando/config.yml`
   (lando#3388).
 
+## Podman (added 2026-10-15, OSSC-73)
+
+**Verdict:** it works as an opt-in provider, but it's the slowest of the
+three. Keep it for teams that can't use OrbStack or Docker Desktop.
+
+### Published data
+
+- **DDEV's nightly benchmark** (independent; 2026-09-15 to 10-14, Mutagen on;
+  Podman rootless with applehv):
+  - Podman ties the others on Drupal install.
+  - It is **3.6× slower on cold start** (45 s vs OrbStack's 12 s) and **2.5×
+    slower on rebuild**.
+- **Podman 6 defaults to the libkrun provider,** which upstream measured
+  about 26% slower than applehv on builds (libkrun#414). On this M3 Max the
+  default was applehv.
+- **There is no controlled data comparing M1–M4 or Pro/Max chips** for any
+  engine. DDEV doesn't record which chip each runner uses.
+- **Lando requests for Podman** (lando#3238, core#363) are open with no
+  implementation.
+
+### Measured on this Mac (M3 Max)
+
+Round-robin, 5 rounds, all engines under the same background load:
+
+| | OrbStack | Rancher | Podman 6.1.4 (rootful, applehv) |
+|---|---|---|---|
+| Cold engine boot | **1.7 s** | 22.1 s | 10.3 s |
+| Bind-mount read, median | **10.8 s** | 23.8 s | 39.6 s |
+| Small-file write, median | **1.7 s** | 3.5 s | 3.4 s |
+| `lando start` with the engine stopped | **20 s** | 25 s | 46 s |
+
+### Incompatibilities found and fixed
+
+1. **Privileged ports:** Podman's `gvproxy` publishes ports without root, and
+   macOS refuses ports below 1024 on `127.0.0.1` to non-root processes. Fixed
+   in core `56bed58b`: providers can declare `unprivilegedPorts`, so the proxy
+   stays on loopback and uses 8000/4433.
+2. **SELinux:** the Podman VM is Fedora CoreOS with SELinux enforcing, so
+   Traefik was denied the docker socket and served 404 for every app. Fixed in
+   core `b6d3c0a6`: the proxy gets `label=disable` on providers that declare
+   `selinux`.
+3. **Socket location:** the default machine's Docker-compatible API socket is
+   `$TMPDIR/podman/podman-machine-default-api.sock`. It is deterministic, so
+   there is no need to shell out to `podman machine inspect`.
+
+### Still unverified
+
+- **Rootless Podman:** needs `keep-id` UID mapping that Lando's compose files
+  don't emit.
+- **Compose `links`:** Podman rejects them. Lando's generated compose was not
+  audited, but the Drupal recipe works.
+
 ## Sources
 
 - [lando/lando#3388](https://github.com/lando/lando/issues/3388) — Rancher Desktop request; maintainer defers pluggable engines to Lando 4 with no ETA.
