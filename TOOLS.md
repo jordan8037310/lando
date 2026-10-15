@@ -97,7 +97,32 @@ example: `lando-migrate myapp desktop-linux orbstack --images`.
   copies everything from Docker Desktop at once, with no per-project filter,
   and refuses if OrbStack already holds data unless forced.
 
-Use `engineProvider: rancher` for Rancher Desktop. It needs the dockerd (moby)
+Use `engineProvider: rancher` for Rancher Desktop.
+
+### Podman (opt-in, slower)
+
+```bash
+brew install podman
+podman machine init --rootful --now          # rootful: docker-like bind-mount ownership
+echo 'engineProvider: podman' > ~/.lando-dev/config.yml
+```
+
+`auto` never picks Podman. On macOS its port forwarder can't bind ports
+below 1024 on loopback, so the proxy serves on `:8000` / `:4433`, for example
+`https://myapp.lndo.site:4433`. The proxy runs with `label=disable` because
+the Podman VM enforces SELinux.
+
+### Engine comparison on this Mac (M3 Max, 2026-10-15)
+
+Round-robin, 5 rounds per engine, with all three engines up under the same
+background load:
+
+| | OrbStack | Rancher | Podman |
+|---|---|---|---|
+| Cold engine boot | 1.7 s | 22.1 s | 10.3 s |
+| Bind-mount read (median) | 10.8 s | 23.8 s | 39.6 s |
+| Small-file write (median) | 1.7 s | 3.5 s | 3.4 s |
+| `lando start` with the engine stopped | 20 s | 25 s | 46 s | It needs the dockerd (moby)
 runtime and Administrative Access off.
 
 Stable Lando (`v3.26.2`, installed at `~/.data/lando/v3.26.2/lando`) stays
