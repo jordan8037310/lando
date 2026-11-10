@@ -22,10 +22,16 @@ Desktop) — epic **OSSC-60** in Facet Jira.
 
 | Change | Repo | Branch from |
 |---|---|---|
-| Engine code (`lib/`, `utils/`, `hooks/`) | `jordan8037310/core`, cloned at `~/code/oss/lando-core` | `feat/engine-provider` |
-| User docs (docs.lando.dev) | same core fork, `docs/` | `feat/engine-provider` |
-| Plans, architecture, agent setup | this repo | `master` |
+| Engine code (`lib/`, `utils/`, `hooks/`) | `jordan8037310/core`, in a **worktree** under `~/code/oss/lando-core-worktrees/` | `feat/engine-provider` |
+| User docs (docs.lando.dev) | same core fork, `docs/`, in a worktree | `feat/engine-provider` |
+| Plans, architecture, agent setup | this repo, in a worktree under `.claude/worktrees/` | `master` |
 | A recipe or service plugin | that plugin's own fork | its `main` |
+
+**Never work in `~/code/oss/lando-core` itself.** It's the live runtime that
+`lando` runs from for every session on this Mac. Treat it as read-only, and
+update it only when Jordan asks. The same goes for this repo's main checkout,
+which stays on a clean `master`. The full rules, including how to run a
+worktree's build without touching the daily one, are in `~/code/oss/CLAUDE.md`.
 
 ### Forks
 
@@ -70,7 +76,7 @@ the first commit: `gh repo fork lando/<name> --clone=false`, then add it here.
 
 ```bash
 export PATH=/opt/homebrew/opt/node@20/bin:$PATH
-cd ~/code/oss/lando-core && npm test   # lint + unit; baseline 291 passing
+cd ~/code/oss/lando-core-worktrees/<branch> && npm test   # in your worktree; lint + unit, baseline 321 passing
 ```
 
 - **Never run Leia locally** (`npm run test:leia`); it modifies the host. CI only.

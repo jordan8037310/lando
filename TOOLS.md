@@ -2,7 +2,9 @@
 
 How to build, test and lint Lando from this fork. All runtime code is in the
 `lando/core` submodule, so nearly every command runs in a core checkout. The
-engine work uses a standalone clone of the fork at `~/code/oss/lando-core`.
+engine work uses a clone of the fork at `~/code/oss/lando-core`. That clone is
+the live runtime `lando-dev` runs, so it's read-only. Do the work in a worktree
+of it under `~/code/oss/lando-core-worktrees/` (see `~/code/oss/CLAUDE.md`).
 
 ## Toolchain
 
@@ -14,7 +16,8 @@ engine work uses a standalone clone of the fork at `~/code/oss/lando-core`.
 
 ```bash
 export PATH=/opt/homebrew/opt/node@20/bin:$PATH
-cd ~/code/oss/lando-core && npm ci
+git -C ~/code/oss/lando-core worktree add ~/code/oss/lando-core-worktrees/<branch> -b <branch> origin/feat/engine-provider
+cd ~/code/oss/lando-core-worktrees/<branch> && npm ci
 ```
 
 ## Test suites
