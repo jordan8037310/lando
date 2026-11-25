@@ -161,7 +161,60 @@ Round-robin, 5 rounds, all engines under the same background load:
 - **Compose `links`:** Podman rejects them. Lando's generated compose was not
   audited, but the Drupal recipe works.
 
-## Arcane (evaluated 2026-10-15)
+## Kiri (evaluated 2026-11-25, OSSC-75)
+
+[Kiri](https://github.com/libracoder/kiri) is a Docker-API engine in Rust,
+licensed Apache-2.0. It runs one small Linux VM with its own kernel and a Rust
+PID 1, with no dockerd, runc or shim. We tested v0.2.2. The project's first
+commit was 2026-11-02, so it is three weeks old.
+
+**Verdict: promising, not usable yet.** Containers start fastest of any engine
+we've measured, but Kiri can't run a database for Lando today.
+
+### Measured on this Mac (M3 Max)
+
+Round-robin against OrbStack, 5 rounds, same workloads as the Podman run. The
+load average was 42–48 throughout, so compare the ratios, not the absolute
+times.
+
+| Median | OrbStack | Kiri |
+|---|---|---|
+| `docker run --rm alpine true` | 0.66 s | **0.08 s** |
+| Bind-mount read | **6.57 s** | 10.24 s |
+| Small-file write | **1.37 s** | 1.93 s |
+| `lando start` with the engine stopped | 20 s | 21.3 s |
+
+### Incompatibilities
+
+1. **Absolute-form requests (fixed in Lando, core `9c0f2eea`).** The default
+   engine config carries `host: 127.0.0.1` beside the socket path, so
+   docker-modem sends `GET http://127.0.0.1:2376/…` even over the socket.
+   HTTP/1.1 servers must accept that (RFC 9112 §3.2.2), and every other engine
+   does. Kiri answers 404 "does not support". Lando now drops the host for
+   socket connections.
+2. **Privileged ports (fixed in Lando, core `599d8e03`).** Kiri relays ports
+   as the user, so `127.0.0.1:444` is refused and the proxy is killed at start.
+   It reuses Podman's `unprivilegedPorts`: the proxy serves on 8000/4433.
+3. **Named-volume permissions (open, Kiri's bug).** Docker copies the image
+   directory's mode into a new named volume, and Kiri doesn't. Bitnami MySQL
+   runs as uid 1001 and can't write `/bitnami/mysql`, so every Lando database
+   service fails to initialise. **This blocks real use.**
+4. **Port clash at install.** Kiri's domain routers bind `*:80` and `*:443`
+   (IPv6), next to Lando's proxy. Release 0.2.2 has no `kiri domains set`, so
+   the ports move through `KIRI_HTTP_PORT` and `KIRI_HTTPS_PORT` in its login
+   item. See TOOLS.md.
+
+### Side effects on the host
+
+- **`kiri setup` changes the shell and login items.** It adds a `kiri` docker
+  context (not made current), a login item, and a PATH line in `~/.zshrc` and
+  `~/.zprofile`. `kiri setup --help` runs setup too.
+- **It only takes `/var/run/docker.sock` if you agree to.** That happens with
+  `kiri setup --docker-socket`, or by accepting the `*.kiri.local` password
+  prompt, and only when no other engine owns the socket.
+- **It updates itself, and mounts container files read-only at `~/Kiri`.**
+- **`kiri share` publishes ports to the internet.** Lando never calls it.
+
 
 **Arcane is not an engine.** It's a self-hosted Docker management UI
 (BSD-3-Clause, `getarcaneapp/arcane`), in the same category as Portainer. It
