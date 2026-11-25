@@ -125,6 +125,34 @@ below 1024 on loopback, so the proxy serves on `:8000` / `:4433`, for example
 `https://myapp.lndo.site:4433`. The proxy runs with `label=disable` because
 the Podman VM enforces SELinux.
 
+### Kiri (opt-in, experimental, blocked)
+
+Kiri needs core branch `feat/kiri-provider` (jordan8037310/core#2). It can't
+run a database yet. It creates new named volumes with fixed permissions
+instead of copying them from the image, so MySQL, which runs as non-root,
+can't initialise. Use it only for benchmarks until Kiri fixes that.
+
+```bash
+brew install --cask libracoder/kiri/kiri
+K=/Applications/Kiri.app/Contents/MacOS/kiri
+$K setup     # note: `kiri setup --help` also runs setup
+# its domain routers take *:80 and *:443; move them off Lando's ports
+P=~/Library/LaunchAgents/dev.kiri.daemon.plist
+plutil -insert EnvironmentVariables -json '{"KIRI_HTTP_PORT":"8081","KIRI_HTTPS_PORT":"8444"}' $P
+launchctl bootout gui/$(id -u)/dev.kiri.daemon; launchctl bootstrap gui/$(id -u) $P   # retry bootstrap if it says I/O error
+echo 'engineProvider: kiri' > ~/.lando-dev/config.yml
+```
+
+- **What `kiri setup` changes:** it adds a `kiri` docker context without
+  switching to it, installs a login item, and appends `~/.kiri/bin` to PATH in
+  `~/.zshrc` and `~/.zprofile`. It leaves `/var/run/docker.sock` alone. Don't
+  accept the `*.kiri.local` password prompt, which would link that socket.
+- **Rerunning `kiri setup`, or opening Kiri.app, rewrites the login item**
+  and drops the port settings. Lando starts Kiri with `launchctl kickstart`,
+  so it never does either.
+- **Ports:** like Podman, Kiri relays ports as your user, so the proxy serves
+  on `:8000` and `:4433`.
+
 ### Engine comparison on this Mac (M3 Max, 2026-10-15)
 
 Round-robin, 5 rounds per engine, with all three engines up under the same
@@ -150,6 +178,7 @@ a second engine takes over `/var/run/docker.sock` — see
 | Docker Desktop | `/Applications/Docker.app` | `~/.docker/run/docker.sock` (via `/var/run/docker.sock`) | `desktop-linux` |
 | OrbStack 2.2.3 | `brew install --cask orbstack` | `~/.orbstack/run/docker.sock` | `orbstack` |
 | Rancher Desktop 1.24.0 | `brew install --cask rancher` | `~/.rd/docker.sock` (dockerd mode) | `rancher-desktop` |
+| Kiri 0.2.2 | `brew install --cask libracoder/kiri/kiri` | `~/.kiri/run/docker.sock` | `kiri` |
 
 Check the live state before and after engine work:
 
